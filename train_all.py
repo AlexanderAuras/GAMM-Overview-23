@@ -138,7 +138,7 @@ def total_variation(x: Tensor) -> Tensor:
     return F.conv1d(x.unsqueeze(1), torch.tensor([[[-1.0,1.0,0.0]]], device=DEVICE), padding=1).abs().mean()
 
 
-
+"""
 unet = UNet(1, 1, A_pinv, dims=1).to(DEVICE)
 optimizer = torch.optim.Adam(unet.parameters(), lr=UNET_LR, weight_decay=1e-3)
 train_losses = []
@@ -290,7 +290,7 @@ plt.plot([x*len(train_dataloader) for x in range(len(val_adv_losses))], val_adv_
 plt.yscale("log")
 plt.tight_layout()
 plt.savefig(f"train/tiramisu_{SUFFIX}/losses.png")
-
+"""
 
 
 itnet = ItNet(1, 1, A, A_T, A_pinv, ITNET_INTERN_ITERATIONS, ITNET_INTERN_LR, dims=1).to(DEVICE)

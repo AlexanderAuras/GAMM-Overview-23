@@ -62,12 +62,11 @@ class UNet(nn.Module):
         x = self.__A_pinv(x)
         assert x.shape[-1]%2**len(self.__down_blocks) == 0, "Invalid input size"
         tmp = []
-        delta = x
         for down_block in self.__down_blocks:
-            delta = down_block(delta)
-            tmp.append(delta)
-        delta = self.__central_block(delta)
+            x = down_block(x)
+            tmp.append(x)
+        x = self.__central_block(x)
         for i, up_block in enumerate(self.__up_blocks):
-            delta = torch.cat([delta, tmp[-(i+1)]], dim=1)
-            delta = up_block(delta)
-        return x+delta
+            x = torch.cat([x, tmp[-(i+1)]], dim=1)
+            x = up_block(x)
+        return x
