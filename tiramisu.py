@@ -70,7 +70,7 @@ class Tiramisu(nn.Module):
         channels_down = [48+sum(layer_counts[:i])*16 for i in range(len(layer_counts))]
         channels_up1 = [layer_counts[::-1][i]*16 for i in range(len(layer_counts)-1)]
         channels_up2 = [channels_down[::-1][i]+layer_counts[::-1][i]*16 for i in range(len(layer_counts)-1)]
-        self.__linear_map = nn.Linear(M, N)
+        self.__linear_map = nn.Linear(M, N, bias=False)
         self.__N = N
         self.__initial_conv = ConvType(in_channels, base_channels, kernel_size=3, padding=1)
         self.__down_dense_blocks = nn.ModuleList([_DenseBlock(channels_down[i], layer_counts[i], growth_rate, dims) for i in range(len(layer_counts)-1)])
