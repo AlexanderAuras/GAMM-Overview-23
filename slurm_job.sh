@@ -10,11 +10,11 @@
 
 #SBATCH --array=0-999
 
-#SBATCH --output=./runs/%j-stdout.log
-#SBATCH --error=./runs/%j-stderr.log
+#SBATCH --output=./runs/%A-%a-stdout.log
+#SBATCH --error=./runs/%A-%a-stderr.log
 
 #SBATCH --job-name="ItNet"
 
 /cm/shared/omni/apps/miniconda3/bin/activate GAMM
-OVERWRITES=$(python /tmp/gen_overwrites.py $SLURM_ARRAY_TASK_ID)
+OVERWRITES=$(python gen_overwrites.py $SLURM_ARRAY_TASK_ID)
 "/home/aa609734/.conda/envs/GAMM/bin/python" "/home/aa609734/Projects/GAMM Overview 23/train.py" $OVERWRITES

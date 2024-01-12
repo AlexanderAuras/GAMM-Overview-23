@@ -28,17 +28,18 @@ torch.set_grad_enabled(False)
 torch.set_default_dtype(torch.float64)
 
 
-config = load_config(Path(__file__).parents[2].joinpath("config.yaml"))
+config = load_config(Path(__file__).parent.joinpath("config.yaml"))
 parser = argparse.ArgumentParser()
 add_arpgarse_arguments(parser, config)
 args = parser.parse_args()
 process_arpgarse_arguments(args, config)
-save_config(Path(__file__).parents[2].joinpath("config2.yaml"), config)
 
 seed(config.seed)
 
+LOG_IMG_COUNT = 4
 
-matrix = torch.load(Path(__file__).parent.joinpath("operators", "matrix.pth"))
+
+matrix = torch.load(Path(__file__).parent.joinpath("src", "gamm23", "operators", "matrix.pth"))
 A = MatrixOperator(matrix).to(config.device)
 __D = DifferentialOperator().to_matrix(A.input_size).to(config.device)
 __ATApaD2iAT = (A.to_matrix().mT @ A.to_matrix() + config.tik_alpha * __D.mT @ __D).inverse() @ A.to_matrix().mT
@@ -46,7 +47,7 @@ A_T = A.mT
 A_Tik = MatrixOperator(__ATApaD2iAT).to(config.device)
 
 
-train_dataset, val_dataset, test_dataset = load_datasets(Path(__file__).parent.joinpath("data", "noisy"))
+train_dataset, val_dataset, test_dataset = load_datasets(Path(__file__).parent.joinpath("src", "gamm23", "data", "noisy"))
 train_dataloader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, drop_last=False, num_workers=config.num_workers, worker_init_fn=lambda _: seed(torch.initial_seed()))
 val_dataloader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, drop_last=False, num_workers=config.num_workers, worker_init_fn=lambda _: seed(torch.initial_seed()))
 test_dataloader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, drop_last=False, num_workers=config.num_workers, worker_init_fn=lambda _: seed(torch.initial_seed()))
@@ -75,7 +76,7 @@ optimizer = torch.optim.Adam(network.parameters(), lr=config.lr, weight_decay=co
 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 loss_fn = lambda a, b: F.smooth_l1_loss(a, b)
 
-OUTPUT_PATH = Path(__file__).parents[2].joinpath("runs", randomname.get_name())
+OUTPUT_PATH = Path(__file__).parent.joinpath("runs", randomname.get_name())
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 tb_logger = torch.utils.tensorboard.writer.SummaryWriter(str(OUTPUT_PATH.resolve()))
 save_config(OUTPUT_PATH.joinpath("config.yaml"), config)
@@ -107,9 +108,10 @@ for batch_no, (noisy_measurement, groundtruth) in tqdm(enumerate(val_dataloader)
     adv_mse_acc += F.mse_loss(adv_reconstruction, groundtruth).item()
     """
     if batch_no == 0:
-        for batch_no in range(min(groundtruth.shape[0], 10)):
-            tb_logger.add_figure("val/output", to_figure(groundtruth=groundtruth[batch_no], reconstruction=reconstruction[batch_no]), 0)
-            tb_logger.add_figure("val/noisy_measurement", to_figure(noisy_measurement=noisy_measurement[batch_no]), 0)
+        for i in range(min(groundtruth.shape[0], LOG_IMG_COUNT)):
+            print(i)
+            tb_logger.add_figure(f"val/output-{i}", to_figure(groundtruth=groundtruth[i], reconstruction=reconstruction[i]), 0)
+            tb_logger.add_figure(f"val/noisy_measurement-{i}", to_figure(noisy_measurement=noisy_measurement[i]), 0)
 tb_logger.add_scalar("val/loss", loss_acc / len(test_dataloader), 0)
 tb_logger.add_scalar("val/mse", mse_acc / len(test_dataloader), 0)
 best_loss = float("inf")
@@ -161,9 +163,9 @@ for epoch_no in trange(config.epochs):
         adv_mse_acc += F.mse_loss(adv_reconstruction, groundtruth).item()
         """
         if batch_no == 0:
-            for batch_no in range(min(groundtruth.shape[0], 10)):
-                tb_logger.add_figure("val/output", to_figure(groundtruth=groundtruth[batch_no], reconstruction=reconstruction[batch_no]), epoch_no + 1)
-                tb_logger.add_figure("val/noisy_measurement", to_figure(noisy_measurement=noisy_measurement[batch_no]), epoch_no + 1)
+            for i in range(min(groundtruth.shape[0], LOG_IMG_COUNT)):
+                tb_logger.add_figure(f"val/output-{i}", to_figure(groundtruth=groundtruth[i], reconstruction=reconstruction[i]), epoch_no + 1)
+                tb_logger.add_figure(f"val/noisy_measurement-{i}", to_figure(noisy_measurement=noisy_measurement[i]), epoch_no + 1)
     tb_logger.add_scalar("val/loss", loss_acc / len(test_dataloader), epoch_no + 1)
     tb_logger.add_scalar("val/mse", mse_acc / len(test_dataloader), epoch_no + 1)
     lr_scheduler.step()
@@ -181,8 +183,8 @@ for batch_no, (noisy_measurement, groundtruth) in tqdm(enumerate(test_dataloader
     loss_acc += loss_fn(reconstruction, groundtruth).item()
     mse_acc += F.mse_loss(reconstruction, groundtruth).item()
     if batch_no == 0:
-        for batch_no in range(min(groundtruth.shape[0], 10)):
-            tb_logger.add_figure("test/output", to_figure(groundtruth=groundtruth[batch_no], reconstruction=reconstruction[batch_no]), 0)
-            tb_logger.add_figure("test/noisy_measurement", to_figure(noisy_measurement=noisy_measurement[batch_no]), 0)
+        for i in range(min(groundtruth.shape[0], LOG_IMG_COUNT)):
+            tb_logger.add_figure(f"test/output-{i}", to_figure(groundtruth=groundtruth[i], reconstruction=reconstruction[i]), 0)
+            tb_logger.add_figure(f"test/noisy_measurement-{i}", to_figure(noisy_measurement=noisy_measurement[i]), 0)
 tb_logger.add_scalar("test/loss", loss_acc / len(test_dataloader), 0)
 tb_logger.add_scalar("test/mse", mse_acc / len(test_dataloader), 0)
