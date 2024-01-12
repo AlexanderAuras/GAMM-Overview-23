@@ -1,0 +1,17 @@
+seed: 314176
+device: cuda:0
+num_workers: 0 #!eval "__import__('os') or os.cpu_count()"
+
+batch_size: 128
+
+tik_alpha: 0.1
+
+lr: 1e-5
+weight_decay: 0.0
+intern_lr: 1e-3
+epochs: 350
+intern_iterations: 8
+
+adv_lr: 1e0
+adv_iterations: 10
+adv_epsilon: 1.0
