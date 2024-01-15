@@ -1,9 +1,10 @@
-from math import log10
 import random
+from math import log10
 from typing import Sequence, Union
 
 import numpy as np
 import torch
+import torch.backends.cudnn
 from torch import Tensor
 
 

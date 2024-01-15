@@ -1,5 +1,5 @@
-from pathlib import Path
 import random
+from pathlib import Path
 from typing import Callable, Tuple, cast
 
 import torch
@@ -8,8 +8,9 @@ from tqdm import trange
 
 from gamm23.operators import MatrixOperator
 
+
 torch.set_grad_enabled(False)
-torch.set_default_dtype(torch.float64)
+torch.set_default_dtype(torch.float32)
 
 
 

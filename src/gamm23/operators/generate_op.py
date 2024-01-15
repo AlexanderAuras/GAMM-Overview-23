@@ -2,8 +2,9 @@ from pathlib import Path
 
 import torch
 
+
 torch.set_grad_enabled(False)
-torch.set_default_dtype(torch.float64)
+torch.set_default_dtype(torch.float32)
 
 
 BASE_PATH = Path(__file__).parent

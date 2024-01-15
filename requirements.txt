@@ -1,6 +1,9 @@
+ipykernel
 matplotlib
 numpy
 pyyaml
 randomname
+tensorboard
 torch
+torchopt
 tqdm

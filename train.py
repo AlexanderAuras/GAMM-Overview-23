@@ -22,10 +22,10 @@ from gamm23.utils import seed
 
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"  # ":16:8"
 
-plt.rcParams.update({"text.usetex": True, "font.family": "sans-serif", "font.weight": "bold", "font.size": 22})
+plt.rcParams.update({"text.usetex": False, "font.family": "sans-serif", "font.weight": "bold", "font.size": 22})
 
 torch.set_grad_enabled(False)
-torch.set_default_dtype(torch.float64)
+torch.set_default_dtype(torch.float32)
 
 
 config = load_config(Path(__file__).parent.joinpath("config.yaml"))
@@ -34,8 +34,10 @@ add_arpgarse_arguments(parser, config)
 args = parser.parse_args()
 process_arpgarse_arguments(args, config)
 
-seed(config.seed)
 
+seed(config.seed)
+OUTPUT_PATH = Path(f"/work/ws-tmp/aa609734-GAMM/runs/tiramisu/{randomname.get_name()}")  # Path(__file__).parent.joinpath("runs", randomname.get_name())
+OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 LOG_IMG_COUNT = 4
 
 
@@ -71,14 +73,14 @@ def to_figure(*args: Tensor, **kwargs: Tensor) -> matplotlib.figure.Figure:
     return figure
 
 
-network = ItNet(1, 1, A, A_T, A_Tik, config.intern_iterations, config.intern_lr, dims=1).to(config.device)
+network = Tiramisu(1, 1, cast(int, A.output_size), cast(int, A.input_size), dims=1).to(config.device)
 optimizer = torch.optim.Adam(network.parameters(), lr=config.lr, weight_decay=config.weight_decay, foreach=False)
 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 loss_fn = lambda a, b: F.smooth_l1_loss(a, b)
 
-OUTPUT_PATH = Path(__file__).parent.joinpath("runs", randomname.get_name())
-OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
+
 tb_logger = torch.utils.tensorboard.writer.SummaryWriter(str(OUTPUT_PATH.resolve()))
+setattr(config, "slurm_id", os.environ["SLURM_ARRAY_JOB_ID"])
 save_config(OUTPUT_PATH.joinpath("config.yaml"), config)
 
 # ------------------------ VALIDATION ------------------------
@@ -109,11 +111,10 @@ for batch_no, (noisy_measurement, groundtruth) in tqdm(enumerate(val_dataloader)
     """
     if batch_no == 0:
         for i in range(min(groundtruth.shape[0], LOG_IMG_COUNT)):
-            print(i)
             tb_logger.add_figure(f"val/output-{i}", to_figure(groundtruth=groundtruth[i], reconstruction=reconstruction[i]), 0)
             tb_logger.add_figure(f"val/noisy_measurement-{i}", to_figure(noisy_measurement=noisy_measurement[i]), 0)
-tb_logger.add_scalar("val/loss", loss_acc / len(test_dataloader), 0)
-tb_logger.add_scalar("val/mse", mse_acc / len(test_dataloader), 0)
+tb_logger.add_scalar("val/loss", loss_acc / len(val_dataloader), 0)
+tb_logger.add_scalar("val/mse", mse_acc / len(val_dataloader), 0)
 best_loss = float("inf")
 save_checkpoint(OUTPUT_PATH, "initial", {"network": network.state_dict(), "optimizer": optimizer.state_dict(), "lr_scheduler": lr_scheduler.state_dict()})
 for epoch_no in trange(config.epochs):
@@ -166,11 +167,15 @@ for epoch_no in trange(config.epochs):
             for i in range(min(groundtruth.shape[0], LOG_IMG_COUNT)):
                 tb_logger.add_figure(f"val/output-{i}", to_figure(groundtruth=groundtruth[i], reconstruction=reconstruction[i]), epoch_no + 1)
                 tb_logger.add_figure(f"val/noisy_measurement-{i}", to_figure(noisy_measurement=noisy_measurement[i]), epoch_no + 1)
-    tb_logger.add_scalar("val/loss", loss_acc / len(test_dataloader), epoch_no + 1)
-    tb_logger.add_scalar("val/mse", mse_acc / len(test_dataloader), epoch_no + 1)
+    tb_logger.add_scalar("val/loss", loss_acc / len(val_dataloader), epoch_no + 1)
+    tb_logger.add_scalar("val/mse", mse_acc / len(val_dataloader), epoch_no + 1)
     lr_scheduler.step()
     for i, param_group in enumerate(optimizer.param_groups):
         tb_logger.add_scalar(f"lr-{i}", param_group["lr"], epoch_no + 1)
+    # Preliminary termination
+    if epoch_no == 49 and loss_acc / len(val_dataloader) >= 0.1:
+        print("PRELIMINARY TERMINATION DUE TO BAD PERFORMANCE!")
+        break
 save_checkpoint(OUTPUT_PATH, "final", {"network": network.state_dict(), "optimizer": optimizer.state_dict(), "lr_scheduler": lr_scheduler.state_dict()})
 # ------------------------ TESTING ------------------------
 loss_acc = 0.0
