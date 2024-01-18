@@ -5,3 +5,4 @@ __pycache__/
 /src/gamm23/operators/matrix.pth
 /runs/
 /_old_runs/
+/weights

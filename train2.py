@@ -36,7 +36,7 @@ process_arpgarse_arguments(args, config)
 
 
 seed(config.seed)
-OUTPUT_PATH = Path(f"/work/ws-tmp/aa609734-GAMM/runs/unet/{randomname.get_name()}")  # Path(__file__).parent.joinpath("runs", randomname.get_name())
+OUTPUT_PATH = Path(f"/work/ws-tmp/aa609734-GAMM/runs/tmp/{randomname.get_name()}")  # Path(__file__).parent.joinpath("runs", randomname.get_name())
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 LOG_IMG_COUNT = 4
 
@@ -73,10 +73,15 @@ def to_figure(*args: Tensor, **kwargs: Tensor) -> matplotlib.figure.Figure:
     return figure
 
 
-network = UNet(1, 1, A_Tik, dims=1).to(config.device)
+network = Tiramisu(1, 1, cast(int, A.output_size), cast(int, A.input_size), dims=1).to(config.device)
 optimizer = torch.optim.Adam(network.parameters(), lr=config.lr, weight_decay=config.weight_decay, foreach=False)
 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 loss_fn = lambda a, b: F.smooth_l1_loss(a, b)
+
+lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=1.0)
+network.load_state_dict(torch.load(str(Path(__file__).parent.joinpath(f"runs/tiramisu/{config.ckpt}/final.pth").resolve()))["network"])
+optimizer = torch.optim.Adam(network.parameters(), lr=config.lr, weight_decay=0.0, foreach=False)
+loss_fn = lambda a, b: ((a-b)**4).flatten(start_dim=1).mean(1).mean(0)
 
 
 tb_logger = torch.utils.tensorboard.writer.SummaryWriter(str(OUTPUT_PATH.resolve()))
@@ -131,10 +136,11 @@ for epoch_no in trange(config.epochs):
         noisy_measurement, groundtruth = noisy_measurement.to(config.device), groundtruth.to(config.device)
         with torch.enable_grad():
             reconstruction = network(noisy_measurement.unsqueeze(1))[:, 0]
-            loss = loss_fn(reconstruction, groundtruth)
-        optimizer.zero_grad()
+            loss = loss_fn(reconstruction, groundtruth)/config.batch_acc
         loss.backward()
-        optimizer.step()
+        if ((batch_no + 1) % config.batch_acc == 0) or (batch_no + 1 == len(train_dataloader)):
+            optimizer.step()
+            optimizer.zero_grad()
         tb_logger.add_scalar("train/loss", loss_fn(reconstruction, groundtruth).item(), epoch_no * len(train_dataloader) + batch_no)
         tb_logger.add_scalar("train/mse", F.mse_loss(reconstruction, groundtruth).item(), epoch_no * len(train_dataloader) + batch_no)
         if loss.item() < best_loss:

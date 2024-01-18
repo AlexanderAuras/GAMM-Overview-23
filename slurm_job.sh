@@ -8,12 +8,12 @@
 #SBATCH --partition=gpu
 #SBATCH --time=24:00:00
 
-#SBATCH --array=0-30
+#SBATCH --array=0-77
 
-#SBATCH --output=/work/ws-tmp/aa609734-GAMM/runs/tiramisu/%A-%a-stdout.log
-#SBATCH --error=/work/ws-tmp/aa609734-GAMM/runs/tiramisu/%A-%a-stderr.log
+#SBATCH --output=/work/ws-tmp/aa609734-GAMM/runs/unet/%A-%a-stdout.log
+#SBATCH --error=/work/ws-tmp/aa609734-GAMM/runs/unet/%A-%a-stderr.log
 
-#SBATCH --job-name="Tiramisu"
+#SBATCH --job-name="UNet"
 
 /cm/shared/omni/apps/miniconda3/bin/activate GAMM
 OVERWRITES=$(python gen_overwrites.py $SLURM_ARRAY_TASK_ID)
