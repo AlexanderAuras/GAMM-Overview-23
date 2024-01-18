@@ -22,7 +22,13 @@ from gamm23.utils import seed
 
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"  # ":16:8"
 
-plt.rcParams.update({"text.usetex": False, "font.family": "sans-serif", "font.weight": "bold", "font.size": 22})
+plt.rcParams.update(
+    {
+        "text.usetex": True,
+        "font.family": "sans-serif",
+        "font.size": 16,
+    }
+)
 
 torch.set_grad_enabled(False)
 torch.set_default_dtype(torch.float32)
@@ -36,7 +42,7 @@ process_arpgarse_arguments(args, config)
 
 
 seed(config.seed)
-OUTPUT_PATH = Path(f"/work/ws-tmp/aa609734-GAMM/runs/unet/{randomname.get_name()}")  # Path(__file__).parent.joinpath("runs", randomname.get_name())
+OUTPUT_PATH = Path(__file__).parent.joinpath("runs", randomname.get_name())
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 LOG_IMG_COUNT = 4
 
@@ -81,12 +87,12 @@ loss_fn = lambda a, b: F.smooth_l1_loss(a, b)
 
 tb_logger = torch.utils.tensorboard.writer.SummaryWriter(str(OUTPUT_PATH.resolve()))
 try:
-    setattr(config, "slurm_id", os.environ["SLURM_ARRAY_JOB_ID"])
+    setattr(config, "slurm_id", int(os.environ["SLURM_ARRAY_JOB_ID"]))
 except:
     try:
-        setattr(config, "slurm_id", os.environ["SLURM_JOB_ID"])
+        setattr(config, "slurm_id", int(os.environ["SLURM_JOB_ID"]))
     except:
-        pass
+        setattr(config, "slurm_id", None)
 save_config(OUTPUT_PATH.joinpath("config.yaml"), config)
 
 # ------------------------ VALIDATION ------------------------
@@ -100,21 +106,6 @@ for batch_no, (noisy_measurement, groundtruth) in tqdm(enumerate(val_dataloader)
     reconstruction = network(noisy_measurement.unsqueeze(1))[:, 0]
     loss_acc += loss_fn(reconstruction, groundtruth).item()
     mse_acc += F.mse_loss(reconstruction, groundtruth).item()
-    # Adversarial attack
-    """adversarial_measurement = noisy_measurement.clone()
-    adversarial_measurement.requires_grad = True
-    for _ in range(ADV_ITERATIONS):
-        with torch.enable_grad():
-            adv_reconstruction = network(adversarial_measurement.unsqueeze(1))[:,0]
-            loss = loss_fn(adv_reconstruction, groundtruth)
-            loss.backward()
-        adversarial_measurement = adversarial_measurement + ADV_LR*torch.sign(adversarial_measurement.grad) # FGSM step
-        adversarial_measurement = noisy_measurement + torch.clamp(adversarial_measurement-noisy_measurement, -ADV_EPSILON, ADV_EPSILON) # Projection
-        adversarial_measurement.requires_grad = True
-        torch.cuda.empty_cache()
-    adv_loss_acc += loss_fn(adv_reconstruction, groundtruth).item()
-    adv_mse_acc += F.mse_loss(adv_reconstruction, groundtruth).item()
-    """
     if batch_no == 0:
         for i in range(min(groundtruth.shape[0], LOG_IMG_COUNT)):
             tb_logger.add_figure(f"val/output-{i}", to_figure(groundtruth=groundtruth[i], reconstruction=reconstruction[i]), 0)
@@ -131,10 +122,11 @@ for epoch_no in trange(config.epochs):
         noisy_measurement, groundtruth = noisy_measurement.to(config.device), groundtruth.to(config.device)
         with torch.enable_grad():
             reconstruction = network(noisy_measurement.unsqueeze(1))[:, 0]
-            loss = loss_fn(reconstruction, groundtruth)
-        optimizer.zero_grad()
+            loss = loss_fn(reconstruction, groundtruth) / config.batch_acc
         loss.backward()
-        optimizer.step()
+        if (batch_no + 1) % config.batch_acc == 0:
+            optimizer.step()
+            optimizer.zero_grad()
         tb_logger.add_scalar("train/loss", loss_fn(reconstruction, groundtruth).item(), epoch_no * len(train_dataloader) + batch_no)
         tb_logger.add_scalar("train/mse", F.mse_loss(reconstruction, groundtruth).item(), epoch_no * len(train_dataloader) + batch_no)
         if loss.item() < best_loss:
@@ -154,21 +146,6 @@ for epoch_no in trange(config.epochs):
         reconstruction = network(noisy_measurement.unsqueeze(1))[:, 0]
         loss_acc += loss_fn(reconstruction, groundtruth).item()
         mse_acc += F.mse_loss(reconstruction, groundtruth).item()
-        # Adversarial attack
-        """adversarial_measurement = noisy_measurement.clone()
-        adversarial_measurement.requires_grad = True
-        for _ in range(ADV_ITERATIONS):
-            with torch.enable_grad():
-                adv_reconstruction = network(adversarial_measurement.unsqueeze(1))[:,0]
-                loss = loss_fn(adv_reconstruction, groundtruth)
-                loss.backward()
-            adversarial_measurement = adversarial_measurement + ADV_LR*torch.sign(adversarial_measurement.grad) # FGSM step
-            adversarial_measurement = noisy_measurement + torch.clamp(adversarial_measurement-noisy_measurement, -ADV_EPSILON, ADV_EPSILON) # Projection
-            adversarial_measurement.requires_grad = True
-            torch.cuda.empty_cache()
-        adv_loss_acc += loss_fn(adv_reconstruction, groundtruth).item()
-        adv_mse_acc += F.mse_loss(adv_reconstruction, groundtruth).item()
-        """
         if batch_no == 0:
             for i in range(min(groundtruth.shape[0], LOG_IMG_COUNT)):
                 tb_logger.add_figure(f"val/output-{i}", to_figure(groundtruth=groundtruth[i], reconstruction=reconstruction[i]), epoch_no + 1)
