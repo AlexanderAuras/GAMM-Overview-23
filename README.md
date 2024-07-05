@@ -3,7 +3,7 @@
 
 <font size="2">
 <sup>1</sup>Institute for Vision and Graphics, University of Siegen<br/>
-<sup>2</sup>Bonn?<br/>
+<sup>2</sup>Institute of Computer Science, Rheinische Friedrich-Wilhelms-University Bonn<br/>
 </font><br/>
 
 Official implementation of *Robustness and Exploration of Variational and Machine Learning Approaches to Inverse Problems: An Overview*.
@@ -21,5 +21,5 @@ For their implementation see [https://github.com/jmaces/robust-nets](https://git
 
 Then simply run the jupyter notebook.
 
-The used operator, data and model weights are available at [https://drive.google.com/drive/folders/1nL_Z6gKyRRp36E58KUwNSZbO7Yj58chL?usp=drive_link](https://drive.google.com/drive/folders/1nL_Z6gKyRRp36E58KUwNSZbO7Yj58chL?usp=drive_link).<br/>
+The used operator, data and model weights are available in the repository using git LFS or at [https://drive.google.com/drive/folders/1nL_Z6gKyRRp36E58KUwNSZbO7Yj58chL?usp=drive_link](https://drive.google.com/drive/folders/1nL_Z6gKyRRp36E58KUwNSZbO7Yj58chL?usp=drive_link).<br/>
 The downloaded files location must be specified in the jupyter notebook. Alternatively you can use the *generate_op.py* and *generate_data.py* scripts (in *src/gamm23/operators* and *src/gamm23/data*) to generate a new operator/new data and train the models using the *config.yaml* file and the *train.py* script.
