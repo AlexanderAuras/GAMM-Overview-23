@@ -1,12 +1,7 @@
-/src/gamm23/operators/matrix.pth
-/src/gamm23/data/clean/
-/src/gamm23/data/noisy/
-
 /.ipynb_checkpoints/
 /.vscode/
 /figures/
 /runs
-/weights/
 
 __pycache__/
 *.egg-info/
